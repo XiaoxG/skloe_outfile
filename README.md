@@ -1,2 +1,2 @@
 # skloe_outfile
-a python class for read skloe *.out files
+a python class for reading skloe *.out files
