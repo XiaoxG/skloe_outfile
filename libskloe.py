@@ -7,8 +7,6 @@ import warnings
 import numpy as np
 import pandas as pd
 import scipy.io as sio
-import pdb
-
 
 class Skloe_OutFile():
     """
@@ -190,27 +188,32 @@ class Skloe_OutFile():
             self.seg_statistic = [self.seg_statistic[self.s_seg]]
 
     def pInfo(self,
-              printTxt=False):
+              printTxt=False,
+              printExcel=False):
         print('-' * 50)
         print('Segment: {0:2d}; Channel: {1:3d}; Sampling frequency: {2:4d}Hz.'.format(
             self.segN, self.chN, self.fs))
         print(self.segInfo.to_string(justify='center'))
         print('-' * 50)
+        path = os.getcwd()
+        path += '/' + os.path.splitext(self.filename)[0]
         if printTxt:
-            path = os.getcwd()
-            fname = path + '/' + \
-                os.path.splitext(self.filename)[0] + '_Info.txt'
+            fname = path + '_Info.txt'
             self.segInfo.to_csv(path_or_buf=fname, sep='\t')
+        if printExcel:
+            fname = path + '_Info.xlsx'
+            self.segInfo.to_excel(fname, sheet_name='Sheet01')
 
-    def pChCoeff(self,
-                 printTxt=False):
+    def pChInfo(self,
+                 printTxt=False,
+                 printExcel=False):
         print('-' * 50)
         print(self.chInfo.to_string(justify='center'))
         print('-' * 50)
         if printTxt:
             path = os.getcwd()
             fname = path + '/' + \
-                os.path.splitext(self.filename)[0] + 'ChCoeff.txt'
+                os.path.splitext(self.filename)[0] + 'ChInfo.txt'
             infoFile = open(fname, 'w')
             infoFile.write('Channel total: {0:3d} \n'.format(self.chN))
             formatters = {'Name': "{:16s}".format,
@@ -219,6 +222,10 @@ class Skloe_OutFile():
             infoFile.write(self.chInfo.to_string(
                 formatters=formatters, justify='center'))
             infoFile.close()
+        if printExcel:
+            file_name = path + '/' + \
+                os.path.splitext(self.filename)[0] + '_ChInfo.xlsx'
+            self.chInfo.to_excel(file_name, sheet_name='Sheet01')
 
     def out2dat(self,
                 seg='all'):
@@ -252,7 +259,8 @@ class Skloe_OutFile():
             warnings.warn('Input s_seg is illegal. (int or defalt)')
 
     def pst(self,
-            printTxt=False):
+            printTxt=False,
+            printExcel=False):
         print('-' * 50)
         print('Segment total: {0:02d}'.format(self.segN))
         for idx, istatictis in enumerate(self.seg_statistic):
@@ -261,8 +269,8 @@ class Skloe_OutFile():
             print(istatictis.to_string(float_format='% .3E', justify='center'))
             print('')
         print('-' * 50)
+        path = os.getcwd()
         if printTxt:
-            path = os.getcwd()
             file_name = path + '/' + \
                 os.path.splitext(self.filename)[0] + '_statistic.txt'
             infoFile = open(file_name, 'w')
@@ -273,7 +281,12 @@ class Skloe_OutFile():
                 infoFile.write(istatictis.to_string(
                     float_format='% .3E', justify='center'))
             infoFile.close()
-
+        if printExcel:
+            file_name = path + '/' + \
+                os.path.splitext(self.filename)[0] + '_statistic.xlsx'
+            for idx, istatictis in enumerate(self.seg_statistic):
+                istatictis.to_excel(file_name, sheet_name='SEG{:02d}'.format(idx))
+            
     def out2mat(self, s_seg=0):
         if isinstance(s_seg, int):
             if s_seg <= self.segN:
