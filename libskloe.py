@@ -12,12 +12,7 @@ import scipy.io as sio
 class Skloe_OutFile():
     """
     *.out file class for SKLOE
-    Method:
-    1. out.read()       load the *.out file to Python
-    2. out.pInfo()      print general info of the loaded file
-    3. out.pChCoeff()   print the channel info (Name Unit Coeff.)
-    4. out.out2dat()    convert data to .dat file
-    5. out.out2mat()    convert data to .mat file
+    Please read the readme file.
     """
 
     def __init__(self, filename, s_seg='all', debug=False):
@@ -230,7 +225,7 @@ class Skloe_OutFile():
             self.chInfo.to_excel(file_name, sheet_name='Sheet01')
 
     def to_dat(self,
-                seg='all'):
+                s_seg='all'):
         def writefile(self, idx):
             path = os.getcwd()
             file_name = path + '/' + \
@@ -248,13 +243,14 @@ class Skloe_OutFile():
                                                    index=False, justify='left', float_format='% .5E')
             infoFile.write(data_2write)
             infoFile.close()
+            print('Export: {0:s}'.format(file_name))
 
-        if seg == 'all':
+        if s_seg == 'all':
             for idx in range(self.segN):
                 writefile(self, idx)
-        elif isinstance(seg, int):
-            if seg <= self.segN:
-                writefile(self, seg)
+        elif isinstance(s_seg, int):
+            if s_seg <= self.segN:
+                writefile(self, s_seg)
             else:
                 warnings.warn('seg exceeds the max.')
         else:
@@ -283,11 +279,13 @@ class Skloe_OutFile():
                 infoFile.write(istatictis.to_string(
                     float_format='% .3E', justify='center'))
             infoFile.close()
+            print('Export: {0:s}'.format(file_name))
         if printExcel:
             file_name = path + '/' + \
                 os.path.splitext(self.filename)[0] + '_statistic.xlsx'
             for idx, istatictis in enumerate(self.seg_statistic):
                 istatictis.to_excel(file_name, sheet_name='SEG{:02d}'.format(idx))
+            print('Export: {0:s}'.format(file_name))
             
     def to_mat(self, s_seg=0):
         if isinstance(s_seg, int):
@@ -304,8 +302,9 @@ class Skloe_OutFile():
                             }
                 path = os.getcwd()
                 fname = path + '/' + \
-                    os.path.splitext(self.filename)[0] + 'seg{:2d}.mat'.format(s_seg)
+                    os.path.splitext(self.filename)[0] + 'seg{:02d}.mat'.format(s_seg)
                 sio.savemat(fname, data_dic)
+                print('Export: {0:s}'.format(fname))
             else:
                  warnings.warn('seg exceeds the max.')
         else:
@@ -323,7 +322,7 @@ class Skloe_OutFile():
             print('The data is already upscaled.')
             return
         else:
-            print('Please make sure the following channel units are all checked!')
+            print('Please make sure the channel units are all checked!')
             if pInfo: print(self.chInfo.to_string(justify='center', columns=['Name', 'Unit']))
             self.rho = rho
             self.lam = lam
@@ -414,18 +413,4 @@ class Skloe_OutFile():
                     C3 = lam ** self.chInfo['Coefflam'].iloc[idx2]
                     C = C1 * C2 * C3
                     self.data[idx1][name] *= C
-
-                #     if trans_dic.has_key(unit):
-                #     trans = trans_dic(unit)
-                # elif trans_dic.has_key(unit.unit[0:-1]):
-                #     trans[idx] = trans_dic(unit)
-                #     trans[idx][0] += unit[-1]
-                #     trans[idx][1][0] **= int(unit[-1])
-                #     trans[idx][1][1] *= int(unit[-1])
-                #     trans[idx][1][2] *= int(unit[-1])
-                # elif '.' in unitUpper:
-                #     
-                # return trans
-    # def plot(self, i_seg, i_ch):
-    # def ts2spec():
-    # def ts2statictics():
+            print('The data is upscaled.')
