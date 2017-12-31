@@ -19,7 +19,7 @@ FDAS主要对单个工况数据进行处理，我们希望基于python开发进�
 
 
 目前程序托管于GitHub，主页为：https://github.com/XiaoxG/skloe_outfile
-
+功能介绍：https://nbviewer.jupyter.org/github/XiaoxG/skloe_outfile/blob/master/readme.ipynb
 
 目前拥有以下功能：
 
