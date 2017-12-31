@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import sys
 import os
 import struct
 import math
@@ -24,12 +25,14 @@ class Skloe_OutFile():
         if os.path.exists(filename):
             self.filename = filename
         else:
-            warnings.warn(
-                "File {0:s} does not exist. Breaking".format(filename))
+            warnings.warn("File {0:s} does not exist. Breaking".format(filename))
+            sys.exit()
+            
         self.DEBUG = debug
         self.fs = 0
         self.chN = 0
         self.segN = 0
+        self.scale = 'model'
         if isinstance(s_seg, int):
             self.s_seg = s_seg
         elif isinstance(s_seg, str):
@@ -63,17 +66,17 @@ class Skloe_OutFile():
             # read the name of each channel
             read_fmt = self.chN * '16s'
             buf = struct.unpack(read_fmt, f_in.read(self.chN * 16))
-            chName = [[] for i in range(self.chN)]
-            chIdx = [[] for i in range(self.chN)]
+            chName = []
+            chIdx = []
             for idx, item in enumerate(buf):
-                chName[idx] = buf[idx].decode('utf-8').rstrip()
-                chIdx[idx] = 'Ch{0:02d}'.format(idx)
+                chName.append(buf[idx].decode('utf-8').rstrip())
+                chIdx.append('Ch{0:02d}'.format(idx + 1))
             # read the unit of each channel
             read_fmt = self.chN * '4s'
             buf = struct.unpack(read_fmt, f_in.read(self.chN * 4))
-            chUnit = [[] for i in range(self.chN)]
+            chUnit = []
             for idx, item in enumerate(buf):
-                chUnit[idx] = buf[idx].decode('utf-8').rstrip()
+                chUnit.append(buf[idx].decode('utf-8').rstrip())
 
             # read the coefficient of each channel
             read_fmt = '=' + self.chN * 'f'
@@ -132,23 +135,22 @@ class Skloe_OutFile():
                     if not buf:
                         break
                     data_buf[i_seg].append(struct.unpack(read_fmt, buf))
-
-        note = [[] for i in range(self.segN)]
+        note = []
         for n in range(self.segN):
-            note[n] = seg_info[n][11].decode('utf-8').rstrip()
+            note.append(seg_info[n][11].decode('utf-8').rstrip())
         # read start and stop time
         # segTime = [[] for i in range(self.segN)]
-        startTime = ['' for i in range(self.segN)]
-        stopTime = ['' for i in range(self.segN)]
-        index = ['' for i in range(self.segN)]
-        Duration = ['' for i in range(self.segN)]
+        startTime = []
+        stopTime = []
+        index = []
+        Duration = []
         for n in range(self.segN):
-            startTime[n] = '{0:02d}:{1:02d}:{2:02d}'.format(
-                seg_info[n][6], seg_info[n][5], seg_info[n][4])
-            stopTime[n] = '{0:02d}:{1:02d}:{2:02d}'.format(
-                seg_info[n][10], seg_info[n][9], seg_info[n][8])
-            index[n] = 'Seg{0:02d}'.format(n)
-            Duration[n] = '{0:8.1f}s'.format(samp_num[n] / self.fs)
+            startTime.append('{0:02d}:{1:02d}:{2:02d}'.format(
+                seg_info[n][6], seg_info[n][5], seg_info[n][4]))
+            stopTime.append('{0:02d}:{1:02d}:{2:02d}'.format(
+                seg_info[n][10], seg_info[n][9], seg_info[n][8]))
+            index.append('Seg{0:02d}'.format(n))
+            Duration.append('{0:8.1f}s'.format(samp_num[n] / self.fs))
         segTime_dic = {'Start': startTime,
                        'Stop': stopTime,
                        'Duration': Duration,
@@ -158,15 +160,15 @@ class Skloe_OutFile():
         segInfo = pd.DataFrame(segTime_dic, index=index, columns=Column)
 
         # convert the statistics into data matrix
-        self.seg_statistic = [[] for i in range(self.segN)]
+        self.seg_statistic = []
         for n in range(self.segN):
             seg_statistic_temp = np.reshape(
                 np.array(seg_statistic[n], dtype='float64'), (4, self.chN)).transpose()
             for m in range(self.chN):
                 seg_statistic_temp[m] *= chCoef[m]
             Column = ['Mean', 'STD', 'Max', 'Min']
-            self.seg_statistic[n] = pd.DataFrame(
-                seg_statistic_temp, index=chName, columns=Column)
+            self.seg_statistic.append(pd.DataFrame(
+                seg_statistic_temp, index=chName, columns=Column))
             self.seg_statistic[n]['Unit'] = chUnit
 
         # convert the data_buf into data matrix
@@ -227,7 +229,7 @@ class Skloe_OutFile():
                 os.path.splitext(self.filename)[0] + '_ChInfo.xlsx'
             self.chInfo.to_excel(file_name, sheet_name='Sheet01')
 
-    def out2dat(self,
+    def to_dat(self,
                 seg='all'):
         def writefile(self, idx):
             path = os.getcwd()
@@ -287,7 +289,7 @@ class Skloe_OutFile():
             for idx, istatictis in enumerate(self.seg_statistic):
                 istatictis.to_excel(file_name, sheet_name='SEG{:02d}'.format(idx))
             
-    def out2mat(self, s_seg=0):
+    def to_mat(self, s_seg=0):
         if isinstance(s_seg, int):
             if s_seg <= self.segN:
                 data_dic = {'Data': self.data[s_seg].values,
@@ -309,6 +311,121 @@ class Skloe_OutFile():
         else:
             warnings.warn('Input s_seg is illegal. (int or defalt)')
 
+    def fix_unit(self, c_chN, unit, pInfo = False):
+        self.chInfo['Unit'].loc[c_chN] = unit
+        if pInfo:
+            print('-' * 50)
+            print(self.chInfo.to_string(justify='center'))
+            print('-' * 50)
+
+    def to_fullscale(self, rho=1.025, lam=60, g=9.807,pInfo=False):
+        if self.scale == 'prototype':
+            print('The data is already upscaled.')
+            return
+        else:
+            print('Please make sure the following channel units are all checked!')
+            if pInfo: print(self.chInfo.to_string(justify='center', columns=['Name', 'Unit']))
+            self.rho = rho
+            self.lam = lam
+            self.scale = 'prototype'
+            trans_dic={'kg': ['kN',np.array([g*0.001,1.0,3.0])],
+                       'cm': ['m',np.array([0.01,0.0,1.0])],
+                       'mm': ['m', np.array([0.001,0.0,1.0])],
+                       'm':  ['m',np.array([1,0.0,1.0])],
+                       's':  ['s',np.array([1,0.0,0.5])],
+                       'deg':['deg',np.array([1,0.0,0.0])],
+                       'rad':['rad',np.array([1,0.0,0.0])],
+                       'N': ['kN', np.array([0.001, 1.0, 3.0])]
+                       }
+
+            def findtrans(trans_dic, unit):
+                unit = unit.lower()              
+                if unit in trans_dic:
+                    trans = trans_dic[unit]
+                    return trans
+                elif '/' in unit:
+                    unitUpper, unitLower = unit.split('/')
+                    transUpper = findtrans(trans_dic, unitUpper)
+                    transLower = findtrans(trans_dic, unitLower)                   
+                    trans = [transUpper[0] + '/' + transLower[0], np.array([0.0,0.0,0.0])]
+                    trans[1][0] = transUpper[1][0] / transLower[1][0]
+                    trans[1][1] = transUpper[1][1] - transLower[1][1]
+                    trans[1][2] = transUpper[1][2] - transLower[1][2]
+                    return trans
+                elif '.' in unit:
+                    unitWithDot = unit.split('.')
+                    transU = []
+                    transN1 = np.array([])
+                    transN2 = np.array([])
+                    transN3 = np.array([])
+                    for idx, uWithDot in enumerate(unitWithDot):
+                        transWithDot = findtrans(trans_dic, uWithDot)
+                        transU.append(transWithDot[0])
+                        transN1 = np.append(transN1, transWithDot[1][0])
+                        transN2 = np.append(transN2, transWithDot[1][1])
+                        transN3 = np.append(transN3, transWithDot[1][2])
+                    trans = ['.'.join(transU), np.array([1.0, 0.0, 0.0])]
+                    for x in np.nditer(transN1):
+                        trans[1][0] *= x 
+                    trans[1][1] = transN2.sum()
+                    trans[1][2] = transN3.sum()
+                    return trans
+                elif unit[-1].isdigit():
+                    n = int(unit[-1])
+                    unit = unit[0:-1]
+                    if unit in trans_dic:
+                        trans_temp = trans_dic[unit]
+                        trans = [trans_temp[0]+str(n), np.array([1.0, 0.0, 0.0])]
+                        trans[1][0] = trans_temp[1][0]**n
+                        trans[1][1] = trans_temp[1][1]*n
+                        trans[1][2] = trans_temp[1][2]*n
+                        return trans
+                    else:
+                         warnings.warn(
+                             "input unit cannot identified, please check the unit.")
+                else:
+                     warnings.warn(
+                         "input unit cannot identified, please check the unit.")
+                
+            transUnit = []
+            transCoeffunit = np.zeros(self.chN)
+            transCoeffrho = np.zeros(self.chN)
+            transCoefflam = np.zeros(self.chN)
+            for idx, unit in enumerate(self.chInfo['Unit']):
+                trans_temp = findtrans(trans_dic, unit)
+                transUnit.append(trans_temp[0])
+                transCoeffunit[idx] = trans_temp[1][0]
+                transCoeffrho[idx] = trans_temp[1][1]
+                transCoefflam[idx] = trans_temp[1][2]
+            self.chInfo['Unit'] = transUnit
+            self.chInfo['Coeffunit'] = transCoeffunit
+            self.chInfo['Coeffrho'] = transCoeffrho
+            self.chInfo['Coefflam'] = transCoefflam
+
+            del self.chInfo['Coef']
+
+            if pInfo:
+                print(self.chInfo.to_string(justify='center'))
+
+            for idx1 in range(self.segN):
+                for idx2, name in enumerate(self.chInfo['Name']):
+                    C1 = self.chInfo['Coeffunit'].iloc[idx2]
+                    C2 = rho ** self.chInfo['Coeffrho'].iloc[idx2]
+                    C3 = lam ** self.chInfo['Coefflam'].iloc[idx2]
+                    C = C1 * C2 * C3
+                    self.data[idx1][name] *= C
+
+                #     if trans_dic.has_key(unit):
+                #     trans = trans_dic(unit)
+                # elif trans_dic.has_key(unit.unit[0:-1]):
+                #     trans[idx] = trans_dic(unit)
+                #     trans[idx][0] += unit[-1]
+                #     trans[idx][1][0] **= int(unit[-1])
+                #     trans[idx][1][1] *= int(unit[-1])
+                #     trans[idx][1][2] *= int(unit[-1])
+                # elif '.' in unitUpper:
+                #     
+                # return trans
     # def plot(self, i_seg, i_ch):
     # def ts2spec():
     # def ts2statictics():
