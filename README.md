@@ -1,5 +1,5 @@
 # SKLOE OUT FILE READER
-## Developed by Xiaoxian Guo and Zhichao Fang
+Developed by Xiaoxian Guo and Zhichao Fang
 ### 使用方法
 
 1. 下载 libskloe.py 到本地目录
