@@ -1,5 +1,20 @@
 # SKLOE OUT FILE READER
 ## Developed by Xiaoxian Guo and Zhichao Fang
+### 使用方法
+
+1. 下载 libskloe.py 到本地目录
+2. 在site-packages添加一个路径文件，如libskloe.pth，必须以.pth为后缀，写上保存 libskloe.py 的本地所在的目录名称。
+3. 在编写python脚本时，使用 from libskloe import Skloe_OutFile
+4. 更多功能请参见：https://nbviewer.jupyter.org/github/XiaoxG/skloe_outfile/blob/master/readme.ipynb
+
+注意事项：
+
+1. 找不到python系统目录，可以使用以下命令查看系统python安装目录：
+
+import sys
+
+sys.path
+
 
 ### 简介
 
