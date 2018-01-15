@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 
-class Skloe_OutFile():
+
+class Skloe_OutFile:
     """
     *.out file class for SKLOE
     Please read the readme file.
@@ -20,9 +21,10 @@ class Skloe_OutFile():
         if os.path.exists(filename):
             self.filename = filename
         else:
-            warnings.warn("File {0:s} does not exist. Breaking".format(filename))
+            warnings.warn(
+                "File {0:s} does not exist. Breaking".format(filename))
             sys.exit()
-            
+
         self.DEBUG = debug
         self.fs = 0
         self.chN = 0
@@ -55,8 +57,6 @@ class Skloe_OutFile():
             index, self.chN, self.fs, self.segN = tmp[0], tmp[1], tmp[3], tmp[4]
             dateMonth, dateDay = tmp[5].decode('utf-8'), tmp[6].decode('utf-8')
             self.date = '{0:2s}/{1:2s}'.format(dateMonth, dateDay)
-            #print('Segment number: {0:2d}; Channel number: {1:3d}; Sampling frequency: {2:4d}Hz.'.format(
-            #    self.segN, self.chN, self.fs))
 
             # read the name of each channel
             read_fmt = self.chN * '16s'
@@ -89,9 +89,9 @@ class Skloe_OutFile():
             if (index < -1):
                 read_fmt = '=' + self.chN * 'h'
                 buf = f_in.read(self.chN * 2)
-                chID = struct.unpack(read_fmt, buf)
-            else:
-                chID = []
+                # chID = struct.unpack(read_fmt, buf)
+            # else:
+                # chID = []
 
             # samp_num[i] is the number of samples in segment i
             samp_num = [0 for i in range(self.segN)]
@@ -124,12 +124,11 @@ class Skloe_OutFile():
                 seg_statistic[i_seg] = struct.unpack(read_fmt, buf)
 
                 # read the data in each channel
-                for item in range(samp_num[i_seg]):
-                    read_fmt = '=' + seg_chn * 'h'
-                    buf = f_in.read(seg_chn * 2)
-                    if not buf:
-                        break
-                    data_buf[i_seg].append(struct.unpack(read_fmt, buf))
+                data_buf[i_seg] = np.frombuffer(f_in.read(samp_num[i_seg] *
+                                                          seg_chn * 2),
+                                                dtype=np.int16).reshape(
+                                                    (samp_num[i_seg], seg_chn))
+
         note = []
         for n in range(self.segN):
             note.append(seg_info[n][11].decode('utf-8').rstrip())
@@ -138,17 +137,17 @@ class Skloe_OutFile():
         startTime = []
         stopTime = []
         index = []
-        Duration = []
+        duration = []
         for n in range(self.segN):
             startTime.append('{0:02d}:{1:02d}:{2:02d}'.format(
                 seg_info[n][6], seg_info[n][5], seg_info[n][4]))
             stopTime.append('{0:02d}:{1:02d}:{2:02d}'.format(
                 seg_info[n][10], seg_info[n][9], seg_info[n][8]))
             index.append('Seg{0:02d}'.format(n))
-            Duration.append('{0:8.1f}s'.format(samp_num[n] / self.fs))
+            duration.append('{0:8.1f}s'.format(samp_num[n] / self.fs))
         segTime_dic = {'Start': startTime,
                        'Stop': stopTime,
-                       'Duration': Duration,
+                       'Duration': duration,
                        'Note': note,
                        'N sample': samp_num}
         Column = ['Start', 'Stop', 'Duration', 'N sample', 'Note']
@@ -169,7 +168,7 @@ class Skloe_OutFile():
         # convert the data_buf into data matrix
         self.data = [[] for i in range(self.segN)]
         for n in range(self.segN):
-            data_temp = np.array(data_buf[n], dtype='float64')
+            data_temp = data_buf[n].astype('float64')
             for m in range(self.chN):
                 data_temp[:, m] *= chCoef[m]
             index = np.arange(1, segInfo['N sample'].iloc[n] + 1) / self.fs
@@ -202,8 +201,8 @@ class Skloe_OutFile():
             self.segInfo.to_excel(fname, sheet_name='Sheet01')
 
     def pChInfo(self,
-                 printTxt=False,
-                 printExcel=False):
+                printTxt=False,
+                printExcel=False):
         print('-' * 50)
         print(self.chInfo.to_string(justify='center'))
         print('-' * 50)
@@ -225,7 +224,7 @@ class Skloe_OutFile():
             self.chInfo.to_excel(file_name, sheet_name='Sheet01')
 
     def to_dat(self,
-                s_seg='all'):
+               s_seg='all'):
         def writefile(self, idx):
             path = os.getcwd()
             file_name = path + '/' + \
@@ -284,9 +283,10 @@ class Skloe_OutFile():
             file_name = path + '/' + \
                 os.path.splitext(self.filename)[0] + '_statistic.xlsx'
             for idx, istatictis in enumerate(self.seg_statistic):
-                istatictis.to_excel(file_name, sheet_name='SEG{:02d}'.format(idx))
+                istatictis.to_excel(
+                    file_name, sheet_name='SEG{:02d}'.format(idx))
             print('Export: {0:s}'.format(file_name))
-            
+
     def to_mat(self, s_seg=0):
         if isinstance(s_seg, int):
             if s_seg <= self.segN:
@@ -302,51 +302,55 @@ class Skloe_OutFile():
                             }
                 path = os.getcwd()
                 fname = path + '/' + \
-                    os.path.splitext(self.filename)[0] + 'seg{:02d}.mat'.format(s_seg)
+                    os.path.splitext(self.filename)[
+                        0] + 'seg{:02d}.mat'.format(s_seg)
                 sio.savemat(fname, data_dic)
                 print('Export: {0:s}'.format(fname))
             else:
-                 warnings.warn('seg exceeds the max.')
+                warnings.warn('seg exceeds the max.')
         else:
             warnings.warn('Input s_seg is illegal. (int or defalt)')
 
-    def fix_unit(self, c_chN, unit, pInfo = False):
+    def fix_unit(self, c_chN, unit, pInfo=False):
         self.chInfo['Unit'].loc[c_chN] = unit
         if pInfo:
             print('-' * 50)
             print(self.chInfo.to_string(justify='center'))
             print('-' * 50)
 
-    def to_fullscale(self, rho=1.025, lam=60, g=9.807,pInfo=False):
+    def to_fullscale(self, rho=1.025, lam=60, g=9.807, pInfo=False):
         if self.scale == 'prototype':
             print('The data is already upscaled.')
             return
         else:
             print('Please make sure the channel units are all checked!')
-            if pInfo: print(self.chInfo.to_string(justify='center', columns=['Name', 'Unit']))
+            if pInfo:
+                print(self.chInfo.to_string(
+                    justify='center', columns=['Name', 'Unit']))
             self.rho = rho
             self.lam = lam
             self.scale = 'prototype'
-            trans_dic={'kg': ['kN',np.array([g*0.001,1.0,3.0])],
-                       'cm': ['m',np.array([0.01,0.0,1.0])],
-                       'mm': ['m', np.array([0.001,0.0,1.0])],
-                       'm':  ['m',np.array([1,0.0,1.0])],
-                       's':  ['s',np.array([1,0.0,0.5])],
-                       'deg':['deg',np.array([1,0.0,0.0])],
-                       'rad':['rad',np.array([1,0.0,0.0])],
-                       'N': ['kN', np.array([0.001, 1.0, 3.0])]
-                       }
+            trans_dic = {'kg': ['kN', np.array([g * 0.001, 1.0, 3.0])],
+                         'cm': ['m', np.array([0.01, 0.0, 1.0])],
+                         'mm': ['m', np.array([0.001, 0.0, 1.0])],
+                         'm': ['m', np.array([1, 0.0, 1.0])],
+                         's': ['s', np.array([1, 0.0, 0.5])],
+                         'deg': ['deg', np.array([1, 0.0, 0.0])],
+                         'rad': ['rad', np.array([1, 0.0, 0.0])],
+                         'N': ['kN', np.array([0.001, 1.0, 3.0])]
+                         }
 
             def findtrans(trans_dic, unit):
-                unit = unit.lower()              
+                unit = unit.lower()
                 if unit in trans_dic:
                     trans = trans_dic[unit]
                     return trans
                 elif '/' in unit:
                     unitUpper, unitLower = unit.split('/')
                     transUpper = findtrans(trans_dic, unitUpper)
-                    transLower = findtrans(trans_dic, unitLower)                   
-                    trans = [transUpper[0] + '/' + transLower[0], np.array([0.0,0.0,0.0])]
+                    transLower = findtrans(trans_dic, unitLower)
+                    trans = [transUpper[0] + '/' +
+                             transLower[0], np.array([0.0, 0.0, 0.0])]
                     trans[1][0] = transUpper[1][0] / transLower[1][0]
                     trans[1][1] = transUpper[1][1] - transLower[1][1]
                     trans[1][2] = transUpper[1][2] - transLower[1][2]
@@ -365,7 +369,7 @@ class Skloe_OutFile():
                         transN3 = np.append(transN3, transWithDot[1][2])
                     trans = ['.'.join(transU), np.array([1.0, 0.0, 0.0])]
                     for x in np.nditer(transN1):
-                        trans[1][0] *= x 
+                        trans[1][0] *= x
                     trans[1][1] = transN2.sum()
                     trans[1][2] = transN3.sum()
                     return trans
@@ -374,18 +378,19 @@ class Skloe_OutFile():
                     unit = unit[0:-1]
                     if unit in trans_dic:
                         trans_temp = trans_dic[unit]
-                        trans = [trans_temp[0]+str(n), np.array([1.0, 0.0, 0.0])]
+                        trans = [trans_temp[0] +
+                                 str(n), np.array([1.0, 0.0, 0.0])]
                         trans[1][0] = trans_temp[1][0]**n
-                        trans[1][1] = trans_temp[1][1]*n
-                        trans[1][2] = trans_temp[1][2]*n
+                        trans[1][1] = trans_temp[1][1] * n
+                        trans[1][2] = trans_temp[1][2] * n
                         return trans
                     else:
-                         warnings.warn(
-                             "input unit cannot identified, please check the unit.")
+                        warnings.warn(
+                            "input unit cannot identified, please check the unit.")
                 else:
-                     warnings.warn(
-                         "input unit cannot identified, please check the unit.")
-                
+                    warnings.warn(
+                        "input unit cannot identified, please check the unit.")
+
             transUnit = []
             transCoeffunit = np.zeros(self.chN)
             transCoeffrho = np.zeros(self.chN)
